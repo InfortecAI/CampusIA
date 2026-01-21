@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Campus IA - Tutor de FP y Oposiciones</title>
+    
+    <link rel="icon" type="image/png" href="icono.png">
+    <link rel="apple-touch-icon" href="icono.png">
+    <meta name="apple-mobile-web-app-title" content="CampusIA">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --primary-blue: #1a3a5f;
+            --bg-gradient: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+            --ai-msg-bg: #ffffff;
+            --user-msg-bg: #1a3a5f;
+            --text-color: #333;
+            --chat-bg: #f8f9fa;
+        }
+
+        /* MODO NOCTURNO */
+        body.dark-mode {
+            --bg-gradient: linear-gradient(135deg, #121212 0%, #1e1e1e 100%);
+            --ai-msg-bg: #2d2d2d;
+            --user-msg-bg: #3d5afe;
+            --text-color: #e0e0e0;
+            --chat-bg: #181818;
+            --primary-blue: #000000;
+        }
+
+        body { font-family: 'Inter', sans-serif; margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background: var(--bg-gradient); overflow: hidden; transition: 0.4s; }
+        
+        #chat-container { 
+            width: 95%; max-width: 550px; height: 92vh; background: var(--ai-msg-bg); 
+            border-radius: 20px; box-shadow: 0 15px 35px rgba(0,0,0,0.3); 
+            display: flex; flex-direction: column; overflow: hidden; position: relative; border: 1px solid rgba(0,0,0,0.1);
+        }
+
+        header { background: var(--primary-blue); padding: 18px 20px; color: white; display: flex; align-items: center; justify-content: space-between; z-index: 10; }
+        
+        #online-counter {
+            position: absolute; top: 75px; right: 20px; background: #28a745;
+            color: white; padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; z-index: 5;
+        }
+
+        #responses { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; background: var(--chat-bg); scroll-behavior: smooth; }
+
+        .msg { padding: 14px 18px; border-radius: 18px; font-size: 14px; line-height: 1.6; max-width: 85%; color: var(--text-color); }
+        .ai { background: var(--ai-msg-bg); border: 1px solid rgba(0,0,0,0.1); align-self: flex-start; border-bottom-left-radius: 2px; }
+        .user { background: var(--user-msg-bg); color: white; align-self: flex-end; border-bottom-right-radius: 2px; }
+
+        .error-msg { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; padding: 12px; border-radius: 12px; font-size: 13px; text-align: center; margin: 10px auto; width: 90%; }
+
+        .action-bar { display: flex; background: #f1f3f5; border-top: 1px solid #eee; }
+        body.dark-mode .action-bar { background: #252525; border-color: #444; }
+        .action-bar button { flex: 1; padding: 12px; border: none; background: none; cursor: pointer; font-size: 11px; color: var(--text-color); font-weight: 600; }
+
+        .input-area { padding: 15px; background: var(--ai-msg-bg); border-top: 1px solid rgba(0,0,0,0.1); display: flex; gap: 10px; }
+        input[type="text"] { flex: 1; padding: 12px 20px; border: 1px solid #ced4da; border-radius: 30px; outline: none; background: var(--ai-msg-bg); color: var(--text-color); font-size: 16px; }
+
+        .btn-send { background: var(--user-msg-bg); color: white; border: none; width: 48px; height: 48px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+
+        /* Modal de Bienvenida */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: flex; justify-content: center; align-items: center; z-index: 2000; }
+        .modal-box { background: var(--ai-msg-bg); color: var(--text-color); padding: 35px; border-radius: 25px; max-width: 320px; text-align: center; }
+
+        @media (max-width: 480px) { #chat-container { width: 100%; height: 100vh; border-radius: 0; } }
+    </style>
+</head>
+<body>
+
+<div id="online-counter"><i class="fas fa-circle" style="font-size: 7px; animation: pulse 2s infinite;"></i> <span id="user-count">...</span> online</div>
+
+<div id="welcomeGuide" class="modal-overlay">
+    <div class="modal-box">
+        <i class="fas fa-graduation-cap" style="font-size:60px; color:var(--user-msg-bg); margin-bottom:20px;"></i>
+        <h2>Campus IA</h2>
+        <p>Tu tutor 24/7 para FP y Oposiciones. Sube un PDF o pregunta tus dudas.</p>
+        <button onclick="cerrarGuia()" style="background:var(--user-msg-bg); color:white; border:none; padding:15px; border-radius:30px; cursor:pointer; width:100%; font-weight:600;">Comenzar</button>
+    </div>
+</div>
+
+<div id="chat-container">
+    <header>
+        <div style="font-weight: 600;"><i class="fas fa-university"></i> Tutor Académico</div>
+        <div style="display: flex; gap: 15px;">
+            <i class="fas fa-moon" id="theme-icon" onclick="toggleDarkMode()" style="cursor:pointer;"></i>
+            <i class="fas fa-sync-alt" onclick="limpiarChat()" style="cursor:pointer;"></i>
+        </div>
+    </header>
+
+    <div id="responses"></div>
+
+    <div id="loading" style="display:none; padding: 15px; text-align: center; font-size: 13px; color: var(--text-color);"><i class="fas fa-spinner fa-spin"></i> La IA está analizando...</div>
+
+    <div class="action-bar">
+        <button onclick="document.getElementById('fileInput').click()"><i class="fas fa-upload"></i> SUBIR PDF</button>
+        <button onclick="descargarPDF()"><i class="fas fa-download"></i> GUARDAR PDF</button>
+    </div>
+
+    <div class="input-area">
+        <input type="file" id="fileInput" style="display:none;" accept="application/pdf" onchange="procesarPDF(event)">
+        <input type="text" id="userInput" placeholder="Pregunta sobre tu temario...">
+        <button class="btn-send" onclick="enviarPregunta()"><i class="fas fa-chevron-right"></i></button>
+    </div>
+</div>
+
+<script>
+    // --- LÓGICA PRINCIPAL ---
+    const API_KEY = "TU_API_KEY_AQUÍ"; 
+    const URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
+    const chatLog = document.getElementById("responses");
+
+    window.onload = () => {
+        agregarMensaje("ai", "¡Hola! Estoy listo para estudiar. ¿Qué concepto técnico o ley vamos a trabajar hoy?");
+        actualizarContador();
+        setInterval(actualizarContador, 8000);
+    };
+
+    // FUNCIÓN: Alternar Modo Nocturno
+    function toggleDarkMode() {
+        document.body.classList.toggle('dark-mode');
+        const icon = document.getElementById('theme-icon');
+        icon.classList.toggle('fa-moon');
+        icon.classList.toggle('fa-sun');
+    }
+
+    // FUNCIÓN: Simular actividad real
+    function actualizarContador() {
+        document.getElementById("user-count").innerText = Math.floor(Math.random() * 10) + 4;
+    }
+
+    function cerrarGuia() { document.getElementById("welcomeGuide").style.display = "none"; }
+
+    function agregarMensaje(rol, texto) {
+        const div = document.createElement("div");
+        div.className = `msg ${rol}`;
+        div.innerText = texto;
+        chatLog.appendChild(div);
+        chatLog.scrollTop = chatLog.scrollHeight;
+    }
+
+    // FUNCIÓN: Enviar a la IA con control de saturación (429)
+    async function enviarPregunta(textoOculto = null) {
+        const input = document.getElementById("userInput");
+        const pregunta = textoOculto || input.value.trim();
+        if (!pregunta) return;
+        if(!textoOculto) { agregarMensaje("user", pregunta); input.value = ""; }
+        document.getElementById("loading").style.display = "block";
+
+        try {
+            const response = await fetch(URL, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    system_instruction: { parts: [{ text: "Eres un tutor experto en FP y Oposiciones. Genera tutoriales claros, usa leyes actuales y da consejos para el examen. Estructura con puntos clave." }] },
+                    contents: [{ parts: [{ text: pregunta }] }]
+                })
+            });
+
+            if (response.status === 429) throw new Error("LIMIT");
+            const data = await response.json();
+            document.getElementById("loading").style.display = "none";
+            agregarMensaje("ai", data.candidates[0].content.parts[0].text);
+        } catch (error) {
+            document.getElementById("loading").style.display = "none";
+            if(error.message === "LIMIT") {
+                const errDiv = document.createElement("div");
+                errDiv.className = "error-msg";
+                errDiv.innerHTML = "⚠️ <strong>Saturación:</strong> Espera 60 segundos antes de preguntar de nuevo.";
+                chatLog.appendChild(errDiv);
+            } else {
+                agregarMensaje("ai", "⚠️ Hubo un error. Revisa tu API Key o conexión.");
+            }
+        }
+        chatLog.scrollTop = chatLog.scrollHeight;
+    }
+
+    // FUNCIÓN: Procesar PDF
+    async function procesarPDF(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        document.getElementById("loading").style.display = "block";
+        const reader = new FileReader();
+        reader.onload = async function() {
+            const typedarray = new Uint8Array(this.result);
+            const pdf = await pdfjsLib.getDocument(typedarray).promise;
+            let totalText = "";
+            for (let i = 1; i <= Math.min(pdf.numPages, 5); i++) {
+                const page = await pdf.getPage(i);
+                const content = await page.getTextContent();
+                totalText += content.items.map(s => s.str).join(" ");
+            }
+            document.getElementById("loading").style.display = "none";
+            agregarMensaje("user", "Analizando temario: " + file.name);
+            enviarPregunta("Resume este contenido para estudiar (FP/Oposición): " + totalText);
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    // FUNCIÓN: Descargar última respuesta
+    function descargarPDF() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        const respuestas = document.querySelectorAll('.ai');
+        if (respuestas.length < 1) return;
+        const texto = respuestas[respuestas.length - 1].innerText;
+        doc.text(doc.splitTextToSize(texto, 170), 20, 30);
+        doc.save("Apuntes_IA.pdf");
+    }
+
+    function limpiarChat() { if(confirm("¿Reiniciar sesión?")) { chatLog.innerHTML = ""; agregarMensaje("ai", "¿Qué tema nuevo vemos?"); } }
+</script>
+</body>
+</html>
